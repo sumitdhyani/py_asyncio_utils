@@ -1,0 +1,71 @@
+import asyncio
+from datetime import datetime, timedelta
+import unittest
+
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src/asyncio_utils')))
+from Timer import Timer
+
+async def startAndStopTimer(timer: Timer, sleepInterval: int) -> int:
+    await timer.start()
+    # Sleep for the specified interval
+    await asyncio.sleep(sleepInterval)
+    await timer.stop()
+
+class TimerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_timer_starts_and_stops(self):
+        timeoutInSecs: float = 1.5
+        totalTestDurationInSecs: int = 7
+        expectedTics: int = 1 + (totalTestDurationInSecs // timeoutInSecs)
+        counter: int = 0
+        async def increment_counter():
+            print(datetime.now())
+            nonlocal counter
+            counter += 1
+        timer: Timer = Timer(timedelta(seconds=timeoutInSecs), increment_counter)
+        print("Starting timer test: timeout={}s, total duration={}s, expected tics={}, time={}".format(
+            timeoutInSecs, totalTestDurationInSecs, expectedTics, datetime.now()))
+        await startAndStopTimer(timer, totalTestDurationInSecs)
+        self.assertEqual(counter, expectedTics)
+
+    async def test_timer_starts_and_stops_and_restarts(self):
+        timeoutInSecs: float = 1.5
+        totalTestDurationInSecs: int = 7
+        expectedTics: int = 1 + (totalTestDurationInSecs // timeoutInSecs)
+        counter: int = 0
+        async def increment_counter():
+            print(datetime.now())
+            nonlocal counter
+            counter += 1
+        timer: Timer = Timer(timedelta(seconds=timeoutInSecs), increment_counter)
+        print("Starting timer test: timeout={}s, total duration={}s, expected tics={}, time={}".format(
+            timeoutInSecs, totalTestDurationInSecs, expectedTics, datetime.now()))
+        await startAndStopTimer(timer, totalTestDurationInSecs)
+        self.assertEqual(counter, expectedTics)
+        await asyncio.sleep(5)
+        totalTestDurationInSecs: int = 11
+        expectedTics: int = 1 + (totalTestDurationInSecs // timeoutInSecs)
+        counter = 0
+        print("Restarting timer test: timeout={}s, total duration={}s, expected tics={}, time={}".format(
+            timeoutInSecs, totalTestDurationInSecs, expectedTics, datetime.now()))
+        await startAndStopTimer(timer, totalTestDurationInSecs)
+        self.assertEqual(counter, expectedTics)
+
+    async def test_multiple_timers(self):
+        timeoutInSecs: list[int] = [1, 2, 3]
+        totalTestDurationInSecs: float = 13.5
+
+        expectedTics: list[int] = [1 + (totalTestDurationInSecs // t) for t in timeoutInSecs]
+        counter: list[int] = [0] * len(timeoutInSecs)
+        def increment_counter(idx: int):
+            print(datetime.now())
+            nonlocal counter
+            counter[idx] += 1
+        timers: list[Timer] = [Timer(timedelta(seconds=timeoutInSecs[i]), lambda idx=i: increment_counter(idx)) for i in range(len(timeoutInSecs))]
+        [print("Starting multiple timers test: timeout={}, expected tics={}, total duration={}s".format(timeoutInSecs[i], expectedTics[i], totalTestDurationInSecs)) for i in range(len(timeoutInSecs))]
+        await asyncio.gather(*(startAndStopTimer(timer, totalTestDurationInSecs) for timer in timers))
+        
+
+        for i in range(len(timers)):
+            self.assertEqual(counter[i], expectedTics[i])
