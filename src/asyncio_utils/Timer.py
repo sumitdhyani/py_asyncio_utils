@@ -34,6 +34,7 @@ class Timer:
         self.started = True
         self.stopped = False
         await self.loop(datetime.now())
+        return True
         
     """
       callback execution loop that runs the callback at each timeout interval
