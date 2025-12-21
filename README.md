@@ -50,6 +50,13 @@ async def produce():
 
 asyncio.run(produce())
 ```
+For concrete examples, showing actual working code using these classes, see the example code in the `examples/` directory.
+
+## Working Examples
+- [examples/BasicRateLimiterExample.py](examples/BasicRateLimiterExample.py) — basic `RateLimiter` usage.
+- [examples/BasicTimerExample.py](examples/BasicTimerExample.py) — basic `Timer` usage.
+- [examples/MultipleRateLimitersExample.py](examples/MultipleRateLimitersExample.py) — using multiple `RateLimiter` instances.
+- [examples/MultipleTimersExample.py](examples/MultipleTimersExample.py) — using multiple `Timer` instances.
 
 **Build package from source**
 - The project uses `pyproject.toml`. To build distribution archives install `build` and run:
