@@ -59,47 +59,44 @@ class RateLimiter:
         param task: a callable which can be synchronous or an async coroutine function.
     """
 
+    async def executeAndLogTask(self, task: Callback) -> None:
+        if asyncio.iscoroutinefunction(task):
+            await task()
+        else:
+            task()
+        self.ringBuffer.push(datetime.now())
+
+    # Schedule the onBandWidthAvailable event for when bandwidth becomes available
+    # i.e., when the oldest timestamp in the ring buffer + per is reached
+    # i.e when t = ringBuffer.get_front() + per
+    async def scheduleBandWidthAvailableEvt(self) -> None:
+        asyncio.create_task(
+            asyncio.sleep(
+                (
+                    (self.ringBuffer.get_front() + self.per) - datetime.now()
+                ).total_seconds()
+            )
+        ).add_done_callback(
+            lambda coro_object: asyncio.create_task(self.onBandWidthAvailable())
+        )
+
     async def push(self, task: Callback) -> None:
         if len(self.pendingTasks) > 0:
             self.pendingTasks.append(task)
+            return
         elif not self.bandWidthAvailable():
+            # no pending tasks but bandwidth not available,
+            # queue the task and schedule the next bandwidthAvailable event
             self.pendingTasks.append(task)
-            task: asyncio.Task = asyncio.create_task(
-                asyncio.sleep(
-                    (
-                        (self.ringBuffer.get_front() + self.per) - datetime.now()
-                    ).total_seconds()
-                )
-            )
-            task.add_done_callback(
-                lambda coro_object: asyncio.create_task(self.onBandWidthAvailable())
-            )
+            await self.scheduleBandWidthAvailableEvt()
         else:
-            if asyncio.iscoroutinefunction(task):
-                await task()
-            else:
-                task()
-            self.ringBuffer.push(datetime.now())
+            await self.executeAndLogTask(task)
 
     async def onBandWidthAvailable(self) -> None:
         while self.bandWidthAvailable() and len(self.pendingTasks) > 0:
-            task = self.pendingTasks.pop(0)
-            if asyncio.iscoroutinefunction(task):
-                await task()
-            else:
-                task()
-            self.ringBuffer.push(datetime.now())
+            await self.executeAndLogTask(self.pendingTasks.pop(0))
 
         # If the bandwidth is exhausted but there are still pending tasks,
         # schedule the next bandwidthAvailable event
         if len(self.pendingTasks) > 0:
-            task: asyncio.Task = asyncio.create_task(
-                asyncio.sleep(
-                    (
-                        (self.ringBuffer.get_front() + self.per) - datetime.now()
-                    ).total_seconds()
-                )
-            )
-            task.add_done_callback(
-                lambda coro_object: asyncio.create_task(self.onBandWidthAvailable())
-            )
+            await self.scheduleBandWidthAvailableEvt()
