@@ -1,8 +1,16 @@
 import asyncio
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
+from enum import Enum
 
 Callback = Callable[[], None | Awaitable[None]]
+
+
+# Create an enum for schedule policy
+class SchedulePolicy(Enum):
+    FIXED_SCHEDULE = "FIXED_SCHEDULE"
+    FIXED_DELAY = "FIXED_DELAY"
+
 
 """
   Implements a repeating async-friendly timer that calls a provided function at a fixed
@@ -19,11 +27,24 @@ class Timer:
     started / stopped: booleans used to prevent double-starts and to signal stopping.
     """
 
-    def __init__(self, timeout: timedelta, callback: Callback):
+    def __init__(
+        self,
+        timeout: timedelta,
+        callback: Callback,
+        schedule_policy: str = SchedulePolicy.FIXED_SCHEDULE.value,
+    ) -> None:
         self.timeout: timedelta = timeout
         self.callback: Callback = callback
         self.stopped: bool = False
         self.started: bool = False
+
+        # Check if the provided schedule_policy is valid
+        if schedule_policy not in SchedulePolicy.__members__:
+            raise ValueError(
+                f"Invalid schedule_policy: {schedule_policy}. Must be one of {[policy for policy in SchedulePolicy.__members__]}"
+            )
+
+        self.schedule_policy: SchedulePolicy = SchedulePolicy(schedule_policy)
 
     """
       Starts the timer loop if not already started.
@@ -55,7 +76,11 @@ class Timer:
         else:
             self.callback()
 
-        nextScheduledTime: datetime = scheduledTime + self.timeout
+        nextScheduledTime: datetime = (
+            scheduledTime + self.timeout
+            if self.schedule_policy == SchedulePolicy.FIXED_SCHEDULE
+            else datetime.now() + self.timeout
+        )
         task: asyncio.Task = asyncio.create_task(
             asyncio.sleep((nextScheduledTime - datetime.now()).total_seconds())
         )

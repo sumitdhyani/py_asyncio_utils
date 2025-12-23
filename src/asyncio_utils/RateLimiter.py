@@ -60,12 +60,10 @@ class RateLimiter:
     """
 
     async def push(self, task: Callback) -> None:
-        self.pendingTasks.append(task)
-        if self.bandWidthAvailable():
-            await self.onBandWidthAvailable()
-        # If there is just 1 pending task, but the bandwidth is
-        # is not available, schedule a bandwidthAvailable event
-        elif len(self.pendingTasks) == 1:
+        if len(self.pendingTasks) > 0:
+            self.pendingTasks.append(task)
+        elif not self.bandWidthAvailable():
+            self.pendingTasks.append(task)
             task: asyncio.Task = asyncio.create_task(
                 asyncio.sleep(
                     (
@@ -76,15 +74,22 @@ class RateLimiter:
             task.add_done_callback(
                 lambda coro_object: asyncio.create_task(self.onBandWidthAvailable())
             )
+        else:
+            if asyncio.iscoroutinefunction(task):
+                await task()
+            else:
+                task()
+            self.ringBuffer.push(datetime.now())
 
     async def onBandWidthAvailable(self) -> None:
         while self.bandWidthAvailable() and len(self.pendingTasks) > 0:
-            self.ringBuffer.push(datetime.now())
             task = self.pendingTasks.pop(0)
             if asyncio.iscoroutinefunction(task):
                 await task()
             else:
                 task()
+            self.ringBuffer.push(datetime.now())
+
         # If the bandwidth is exhausted but there are still pending tasks,
         # schedule the next bandwidthAvailable event
         if len(self.pendingTasks) > 0:
