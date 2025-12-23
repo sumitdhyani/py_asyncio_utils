@@ -1,7 +1,7 @@
 import asyncio
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src/asyncio_utils"))
@@ -20,7 +20,7 @@ from RateLimiter import RateLimiter
 # The console output will show that the tasks are executed at their respective rates.
 async def multiple_rate_limiters_example():
     rate_limiters: list[RateLimiter] = [
-        RateLimiter((i + 1) * 5, timedelta(seconds=1)) for i in range(3)
+        RateLimiter((i + 1) * 5, 1_000_000_000) for i in range(3)
     ]
 
     for i in range(3):

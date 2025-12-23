@@ -1,7 +1,11 @@
 import asyncio
+import time
 from collections.abc import Awaitable, Callable
-from datetime import datetime, timedelta
 from typing import TypeVar
+
+
+def ns_to_seconds(ns: int) -> float:
+    return ns / 1_000_000_000
 
 
 class RingBuffer:
@@ -39,19 +43,19 @@ class RateLimiter:
     """
     Initializes the rate limiter with a specified rate and time window.
     param rate: the maximum number of tasks allowed in the time window.
-    param per: the time window as a datetime.timedelta.
+    param per: the time window in nanoseconds.
     """
 
-    def __init__(self, rate: int, per: timedelta):
+    def __init__(self, rate: int, per: int) -> None:
         self.ringBuffer: RingBuffer = RingBuffer(rate)
         self.rate: int = rate
-        self.per: timedelta = per
+        self.per: int = per
         self.pendingTasks: list[Callback] = []
 
     def bandWidthAvailable(self) -> bool:
         return (
             not self.ringBuffer.is_full()
-            or self.ringBuffer.get_front() + self.per < datetime.now()
+            or self.ringBuffer.get_front() + self.per < time.monotonic_ns()
         )
 
     """
@@ -64,7 +68,7 @@ class RateLimiter:
             await task()
         else:
             task()
-        self.ringBuffer.push(datetime.now())
+        self.ringBuffer.push(time.monotonic_ns())
 
     # Schedule the onBandWidthAvailable event for when bandwidth becomes available
     # i.e., when the oldest timestamp in the ring buffer + per is reached
@@ -72,9 +76,9 @@ class RateLimiter:
     async def scheduleBandWidthAvailableEvt(self) -> None:
         asyncio.create_task(
             asyncio.sleep(
-                (
-                    (self.ringBuffer.get_front() + self.per) - datetime.now()
-                ).total_seconds()
+                ns_to_seconds(
+                    (self.ringBuffer.get_front() + self.per) - time.monotonic_ns()
+                )
             )
         ).add_done_callback(
             lambda coro_object: asyncio.create_task(self.onBandWidthAvailable())

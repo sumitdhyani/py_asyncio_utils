@@ -1,8 +1,8 @@
 import asyncio
 import os
 import sys
+import time
 import unittest
-from datetime import datetime, timedelta
 
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src/asyncio_utils"))
@@ -12,7 +12,7 @@ from RateLimiter import RateLimiter
 
 class RateLimiterTests(unittest.IsolatedAsyncioTestCase):
     # Binary search to find the latest timestamp less than the threshold
-    def findLatest(self, timestamps: list[datetime], threshold: datetime) -> int:
+    def findLatest(self, timestamps: list[int], threshold: int) -> int:
         low: int = 0
         high: int = len(timestamps) - 1
         result: int = -1
@@ -26,7 +26,7 @@ class RateLimiterTests(unittest.IsolatedAsyncioTestCase):
         return result
 
     # Binary search to find the earliest timestamp greater than the threshold
-    def findEarliest(self, timestamps: list[datetime], threshold: datetime) -> int:
+    def findEarliest(self, timestamps: list[int], threshold: int) -> int:
         low: int = 0
         high: int = len(timestamps) - 1
         result: int = -1
@@ -40,27 +40,29 @@ class RateLimiterTests(unittest.IsolatedAsyncioTestCase):
         return result
 
     async def test_1(self):
-        await self.do_test(1000, 100, timedelta(seconds=1))
+        await self.do_test(1000, 100, 1)
 
     async def test_2(self):
-        await self.do_test(10000, 1000, timedelta(seconds=1))
+        await self.do_test(10000, 1000, 1)
 
-    async def do_test(self, totalTasks: int, rate: int, per: timedelta):
+    # provide 'per' in seconds
+    async def do_test(self, totalTasks: int, rate: int, per: int):
+        per *= 1_000_000_000  # convert to nanoseconds
         print(
             f"Running RateLimiter test: totalTasks={totalTasks}, rate={rate}, per={per}"
         )
         rateLimiter: RateLimiter = RateLimiter(rate, per)
-        executionLog: list[datetime] = []
+        executionLog: list[int] = []
 
         async def log_execution():
             nonlocal executionLog
-            executionLog.append(datetime.now())
+            executionLog.append(time.monotonic_ns())
 
         # Push 1000 tasks
         for _ in range(totalTasks):
             await rateLimiter.push(log_execution)
         # Wait enough time for all tasks to complete
-        await asyncio.sleep((totalTasks // rate) * per.total_seconds() + 1)
+        await asyncio.sleep((totalTasks // rate) * per // 1_000_000_000 + 1)
         self.assertEqual(len(executionLog), totalTasks)
 
         # Check that no more than 'rate' tasks were executed in any 'per' time window
@@ -71,12 +73,11 @@ class RateLimiterTests(unittest.IsolatedAsyncioTestCase):
         for i in range(totalTasks - rate):
             self.assertGreater(executionLog[i + rate] - executionLog[i], per)
 
-        startWindow: datetime = executionLog[0]
-        endWindow: datetime = executionLog[-1]
+        startWindow: int = executionLog[0]
+        endWindow: int = executionLog[-1]
 
-        currStart: datetime = startWindow
-        cuurrEnd: datetime = currStart + timedelta(seconds=1)
-
+        currStart: int = startWindow
+        cuurrEnd: int = currStart + per  # 1 second in nanoseconds
         # Slide a 'per' timeimeinterval window across the entire execution log, 1 ms at a time
         # and check there were never more than 'rate' executions in that window
         while cuurrEnd <= endWindow:
@@ -85,5 +86,5 @@ class RateLimiterTests(unittest.IsolatedAsyncioTestCase):
             if startIdx == -1:
                 startIdx = 0
             self.assertLessEqual(endIdx - startIdx + 1, rate)
-            currStart += timedelta(milliseconds=1)
-            cuurrEnd += timedelta(milliseconds=1)
+            currStart += 1_000_000  # 1 millisecond in nanoseconds
+            cuurrEnd += 1_000_000  # 1 millisecond in nanoseconds
