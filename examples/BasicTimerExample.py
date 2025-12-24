@@ -1,7 +1,7 @@
 import asyncio
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src/asyncio_utils"))
@@ -24,7 +24,7 @@ async def basic_timer_example():
         print(f"Timer callback executed at {datetime.now()}, tick {tickNumber}")
 
     timer: Timer = Timer(
-        timedelta(seconds=1),
+        1_000_000_000,
         callback,
     )
     await timer.start()

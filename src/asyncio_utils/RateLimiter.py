@@ -1,5 +1,6 @@
 import asyncio
 import time
+from collections import deque
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
@@ -11,11 +12,11 @@ def ns_to_seconds(ns: int) -> float:
 class RingBuffer:
     def __init__(self, size: int):
         self.size = size
-        self.buffer: list[TypeVar("T")] = []
+        self.buffer: deque[TypeVar("T")] = deque()
 
     def push(self, item: TypeVar("T")) -> None:
         if self.is_full():
-            self.buffer.pop(0)
+            self.buffer.popleft()
         self.buffer.append(item)
 
     def is_full(self) -> bool:
@@ -50,7 +51,7 @@ class RateLimiter:
         self.ringBuffer: RingBuffer = RingBuffer(rate)
         self.rate: int = rate
         self.per: int = per
-        self.pendingTasks: list[Callback] = []
+        self.pendingTasks: deque[Callback] = deque()
 
     def bandWidthAvailable(self) -> bool:
         return (
@@ -98,7 +99,7 @@ class RateLimiter:
 
     async def onBandWidthAvailable(self) -> None:
         while self.bandWidthAvailable() and len(self.pendingTasks) > 0:
-            await self.executeAndLogTask(self.pendingTasks.pop(0))
+            await self.executeAndLogTask(self.pendingTasks.popleft())
 
         # If the bandwidth is exhausted but there are still pending tasks,
         # schedule the next bandwidthAvailable event

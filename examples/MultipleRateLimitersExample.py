@@ -15,7 +15,7 @@ from RateLimiter import RateLimiter
 # In this example, we create three RateLimiter instances with different rates:
 # - RateLimiter_1: 5 calls per second
 # - RateLimiter_2: 10 calls per second
-# - RateLimiter_3: 20 calls per second
+# - RateLimiter_3: 15 calls per second
 # We push 40 tasks to each rate limiter.
 # The console output will show that the tasks are executed at their respective rates.
 async def multiple_rate_limiters_example():

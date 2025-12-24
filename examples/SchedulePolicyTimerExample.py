@@ -1,7 +1,7 @@
 import asyncio
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src/asyncio_utils"))
@@ -30,7 +30,7 @@ async def fixed_schedule_policy_timer_example():
         print(f"Timer tick {tickNumber}, endTime={datetime.now()}")
 
     timer: Timer = Timer(
-        timedelta(seconds=1),
+        1_000_000_000,
         callback,
     )
     await timer.start()
@@ -59,7 +59,7 @@ async def fixed_delay_timer_example():
         await asyncio.sleep(0.5)
         print(f"Timer tick {tickNumber}, endTime={datetime.now()}")
 
-    timer: Timer = Timer(timedelta(seconds=1), callback, schedule_policy="FIXED_DELAY")
+    timer: Timer = Timer(1_000_000_000, callback, schedule_policy="FIXED_DELAY")
     await timer.start()
     # Let the timer run for 10 seconds
     # The timer callback should trigger 7 times

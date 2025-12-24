@@ -1,9 +1,13 @@
 import asyncio
+import time
 from collections.abc import Awaitable, Callable
-from datetime import datetime, timedelta
 from enum import Enum
 
 Callback = Callable[[], None | Awaitable[None]]
+
+
+def ns_to_seconds(ns: int) -> float:
+    return ns / 1_000_000_000
 
 
 # Create an enum for schedule policy
@@ -29,11 +33,11 @@ class Timer:
 
     def __init__(
         self,
-        timeout: timedelta,
+        timeout: int,
         callback: Callback,
         schedule_policy: str = SchedulePolicy.FIXED_SCHEDULE.value,
     ) -> None:
-        self.timeout: timedelta = timeout
+        self.timeout: int = timeout
         self.callback: Callback = callback
         self.stopped: bool = False
         self.started: bool = False
@@ -57,16 +61,16 @@ class Timer:
 
         self.started = True
         self.stopped = False
-        await self.loop(datetime.now())
+        await self.loop(time.monotonic_ns())
         return True
 
     """
       callback execution loop that runs the callback at each timeout interval
       until the timer is stopped.
-      param scheduledTime: the datetime when the current loop iteration was scheduled.
+      param scheduledTime: the time when the current loop iteration was scheduled.
     """
 
-    async def loop(self, scheduledTime: datetime) -> None:
+    async def loop(self, scheduledTime: int) -> None:
         if self.stopped is True:
             return
 
@@ -76,13 +80,14 @@ class Timer:
         else:
             self.callback()
 
-        nextScheduledTime: datetime = (
+        now: int = time.monotonic_ns()
+        nextScheduledTime: int = (
             scheduledTime + self.timeout
             if self.schedule_policy == SchedulePolicy.FIXED_SCHEDULE
-            else datetime.now() + self.timeout
+            else now + self.timeout
         )
         task: asyncio.Task = asyncio.create_task(
-            asyncio.sleep((nextScheduledTime - datetime.now()).total_seconds())
+            asyncio.sleep(ns_to_seconds(nextScheduledTime - now))
         )
         task.add_done_callback(
             lambda coro_object: asyncio.create_task(self.loop(nextScheduledTime))

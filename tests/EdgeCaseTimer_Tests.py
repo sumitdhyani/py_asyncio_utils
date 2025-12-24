@@ -2,7 +2,7 @@ import asyncio
 import os
 import sys
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime
 
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src/asyncio_utils"))
@@ -19,7 +19,7 @@ async def startAndStopTimer(timer: Timer, sleepInterval: int) -> int:
 
 class TimerTests(unittest.IsolatedAsyncioTestCase):
     async def test_timer_starts_and_stoped_before_next_tick(self):
-        timeoutInSecs: float = 2
+        timeoutInSecs: int = 2
         totalTestDurationInSecs: int = 7
         expectedTics: int = totalTestDurationInSecs // timeoutInSecs
         counter: int = 0
@@ -29,7 +29,7 @@ class TimerTests(unittest.IsolatedAsyncioTestCase):
             nonlocal counter
             counter += 1
 
-        timer: Timer = Timer(timedelta(seconds=timeoutInSecs), increment_counter)
+        timer: Timer = Timer(timeoutInSecs * 1_000_000_000, increment_counter)
         print(
             "Starting timer test: timeout={}s, total duration={}s, expected tics={}, time={}".format(
                 timeoutInSecs, totalTestDurationInSecs, expectedTics, datetime.now()

@@ -2,7 +2,7 @@ import asyncio
 import os
 import sys
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime
 
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src/asyncio_utils"))
@@ -29,7 +29,7 @@ class TimerTests(unittest.IsolatedAsyncioTestCase):
             nonlocal counter
             counter += 1
 
-        timer: Timer = Timer(timedelta(seconds=timeoutInSecs), increment_counter)
+        timer: Timer = Timer(int(timeoutInSecs * 1_000_000_000), increment_counter)
         print(
             "Starting timer test: timeout={}s, total duration={}s, expected tics={}, time={}".format(
                 timeoutInSecs, totalTestDurationInSecs, expectedTics, datetime.now()
@@ -49,7 +49,7 @@ class TimerTests(unittest.IsolatedAsyncioTestCase):
             nonlocal counter
             counter += 1
 
-        timer: Timer = Timer(timedelta(seconds=timeoutInSecs), increment_counter)
+        timer: Timer = Timer(timeoutInSecs * 1_000_000_000, increment_counter)
         print(
             "Starting timer test: timeout={}s, total duration={}s, expected tics={}, time={}".format(
                 timeoutInSecs, totalTestDurationInSecs, expectedTics, datetime.now()
@@ -85,7 +85,7 @@ class TimerTests(unittest.IsolatedAsyncioTestCase):
 
         timers: list[Timer] = [
             Timer(
-                timedelta(seconds=timeoutInSecs[i]),
+                timeoutInSecs[i] * 1_000_000_000,
                 lambda idx=i: increment_counter(idx),
             )
             for i in range(len(timeoutInSecs))
@@ -107,7 +107,7 @@ class TimerTests(unittest.IsolatedAsyncioTestCase):
 
     # Test for FIXED_DELAY schedule policy
     async def test_fixed_delay_timer(self):
-        timeoutInSecs: float = 1.0
+        timeoutInSecs: int = 1
         taskDelayInSecs: float = 0.5
         totalTestDurationInSecs: int = 7
         expectedTics: int = 1 + (
@@ -121,7 +121,7 @@ class TimerTests(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(taskDelayInSecs)
 
         timer: Timer = Timer(
-            timedelta(seconds=timeoutInSecs),
+            timeoutInSecs * 1_000_000_000,
             increment_counter,
             schedule_policy="FIXED_DELAY",
         )

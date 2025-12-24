@@ -1,7 +1,7 @@
 import asyncio
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src/asyncio_utils"))
@@ -36,7 +36,7 @@ async def multi_timer_example():
 
     timers: list[Timer] = [
         Timer(
-            timedelta(seconds=i + 1),
+            (i + 1) * 1_000_000_000,
             make_callback(i),
         )
         for i in range(3)
