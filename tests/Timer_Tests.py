@@ -11,17 +11,17 @@ from Timer import Timer
 
 
 async def startAndStopTimer(timer: Timer, sleepInterval: int) -> int:
-    await timer.start()
+    timer.start()
     # Sleep for the specified interval
     await asyncio.sleep(sleepInterval)
-    await timer.stop()
+    timer.stop()
 
 
 class TimerTests(unittest.IsolatedAsyncioTestCase):
     async def test_timer_starts_and_stops(self):
         timeoutInSecs: float = 1.5
         totalTestDurationInSecs: int = 7
-        expectedTics: int = 1 + (totalTestDurationInSecs // timeoutInSecs)
+        expectedTics: int = totalTestDurationInSecs // timeoutInSecs
         counter: int = 0
 
         async def increment_counter():
@@ -41,7 +41,7 @@ class TimerTests(unittest.IsolatedAsyncioTestCase):
     async def test_timer_starts_and_stops_and_restarts(self):
         timeoutInSecs: float = 1.5
         totalTestDurationInSecs: int = 7
-        expectedTics: int = 1 + (totalTestDurationInSecs // timeoutInSecs)
+        expectedTics: int = totalTestDurationInSecs // timeoutInSecs
         counter: int = 0
 
         async def increment_counter():
@@ -59,7 +59,7 @@ class TimerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(counter, expectedTics)
         await asyncio.sleep(5)
         totalTestDurationInSecs: int = 11
-        expectedTics: int = 1 + (totalTestDurationInSecs // timeoutInSecs)
+        expectedTics: int = totalTestDurationInSecs // timeoutInSecs
         counter = 0
         print(
             "Restarting timer test: timeout={}s, total duration={}s, expected tics={}, time={}".format(
@@ -73,9 +73,7 @@ class TimerTests(unittest.IsolatedAsyncioTestCase):
         timeoutInSecs: list[int] = [1, 2, 3]
         totalTestDurationInSecs: float = 13.5
 
-        expectedTics: list[int] = [
-            1 + (totalTestDurationInSecs // t) for t in timeoutInSecs
-        ]
+        expectedTics: list[int] = [totalTestDurationInSecs // t for t in timeoutInSecs]
         counter: list[int] = [0] * len(timeoutInSecs)
 
         def increment_counter(idx: int):
@@ -110,9 +108,7 @@ class TimerTests(unittest.IsolatedAsyncioTestCase):
         timeoutInSecs: int = 1
         taskDelayInSecs: float = 0.5
         totalTestDurationInSecs: int = 7
-        expectedTics: int = 1 + (
-            totalTestDurationInSecs // (timeoutInSecs + taskDelayInSecs)
-        )
+        expectedTics: int = totalTestDurationInSecs // (timeoutInSecs + taskDelayInSecs)
         counter: int = 0
 
         async def increment_counter():

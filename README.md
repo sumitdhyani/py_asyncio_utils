@@ -48,8 +48,8 @@ Implements a repeating, async-friendly timer that calls a user-provided callback
 ### API
 
 - `Timer(timeout: datetime.timedelta | float, callback: Callable, schedule_policy: SchedulePolicy = SchedulePolicy.FIXED)` — create a timer with a repeat interval, callback, and drift policy.
-- `await start()` — start the timer loop (non-blocking; schedules repeated executions).
-- `await stop()` — stop the timer loop.
+- `start()` — start the timer loop (non-blocking; schedules repeated executions).
+- `stop()` — stop the timer loop.
 
 ### Drift / Schedule Policy
 
@@ -80,8 +80,8 @@ timer = Timer(
     my_async_callback,
     schedule_policy=SchedulePolicy.FIXED
 )
-await timer.start()  # starts the repeating timer
-# ... later: await timer.stop()
+timer.start()  # starts the repeating timer
+# ... later: timer.stop()
 ```
 
 #### Fixed Delay (completion-relative)
@@ -106,7 +106,7 @@ timer = Timer(
     my_async_callback,
     schedule_policy=SchedulePolicy.DELAY
 )
-await timer.start()
+timer.start()
 ```
 
 ### Overrun Behavior
@@ -121,7 +121,6 @@ This avoids burst execution and keeps behavior predictable.
 
 Calling `stop()` guarantees:
 - No further callbacks will be executed
-- Any internally scheduled wakeups exit immediately
 
 ### Example
 
@@ -135,9 +134,9 @@ async def my_async_callback():
 
 async def main():
     timer = Timer(timedelta(seconds=2), my_async_callback)
-    await timer.start()  # starts the repeating timer
+    timer.start()  # starts the repeating timer
     await asyncio.sleep(10)
-    await timer.stop()
+    timer.stop()
 
 asyncio.run(main())
 ```

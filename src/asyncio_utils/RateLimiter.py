@@ -98,8 +98,13 @@ class RateLimiter:
             await self.executeAndLogTask(task)
 
     async def onBandWidthAvailable(self) -> None:
-        while self.bandWidthAvailable() and len(self.pendingTasks) > 0:
-            await self.executeAndLogTask(self.pendingTasks.popleft())
+        while len(self.pendingTasks) > 0 and self.bandWidthAvailable():
+            now: int = time.monotonic_ns()
+            while (
+                len(self.pendingTasks) > 0
+                and self.ringBuffer.get_front() + self.per < now
+            ):
+                await self.executeAndLogTask(self.pendingTasks.popleft())
 
         # If the bandwidth is exhausted but there are still pending tasks,
         # schedule the next bandwidthAvailable event

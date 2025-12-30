@@ -21,7 +21,7 @@ class TimerTests(unittest.IsolatedAsyncioTestCase):
     async def test_timer_starts_and_stoped_before_next_tick(self):
         timeoutInSecs: int = 2
         totalTestDurationInSecs: int = 7
-        expectedTics: int = totalTestDurationInSecs // timeoutInSecs
+        expectedTics: int = totalTestDurationInSecs // timeoutInSecs - 1
         counter: int = 0
 
         async def increment_counter():

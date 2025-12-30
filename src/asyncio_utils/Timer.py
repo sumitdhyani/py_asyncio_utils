@@ -4,6 +4,7 @@ from collections.abc import Awaitable, Callable
 from enum import Enum
 
 Callback = Callable[[], None | Awaitable[None]]
+ErrCallback = Callable[[Exception], None]
 
 
 def ns_to_seconds(ns: int) -> float:
@@ -25,7 +26,7 @@ class SchedulePolicy(Enum):
 class Timer:
     """
     Stores the timeout and the callback function and initializes two flags:
-    param timeout: intended as a datetime.timedelta that represents the interval between runs.
+    param timeout_ns: interval between ticks in nanoseconds.
     param callback: a callable which can be synchronous or an async coroutine function.
 
     started / stopped: booleans used to prevent double-starts and to signal stopping.
@@ -33,35 +34,53 @@ class Timer:
 
     def __init__(
         self,
-        timeout: int,
+        timeout_ns: int,
         callback: Callback,
-        schedule_policy: str = SchedulePolicy.FIXED_SCHEDULE.value,
+        err_callback: ErrCallback | None = None,
+        schedule_policy: str = "FIXED_SCHEDULE",
     ) -> None:
-        self.timeout: int = timeout
+        if timeout_ns <= 0:
+            raise ValueError("timeout_ns must be a positive integer")
+
+        self.timeout_ns: int = timeout_ns
         self.callback: Callback = callback
+        self.err_callback: ErrCallback | None = err_callback
         self.stopped: bool = False
         self.started: bool = False
+        self.background_sleep_task: asyncio.Task | None = None
 
-        # Check if the provided schedule_policy is valid
-        if schedule_policy not in SchedulePolicy.__members__:
+        try:
+            # Check if the provided schedule_policy is valid
+            self.schedule_policy: SchedulePolicy = SchedulePolicy(schedule_policy)
+        except ValueError:
             raise ValueError(
-                f"Invalid schedule_policy: {schedule_policy}. Must be one of {[policy for policy in SchedulePolicy.__members__]}"
+                f"Invalid schedule_policy: {schedule_policy}. Must be one of {[policy.value for policy in SchedulePolicy]}"
             )
-
-        self.schedule_policy: SchedulePolicy = SchedulePolicy(schedule_policy)
 
     """
       Starts the timer loop if not already started.
       Returns True if the timer was started, False if it was already running.
     """
 
-    async def start(self) -> bool:
+    def start(self) -> bool:
         if self.started:
             return False
 
         self.started = True
         self.stopped = False
-        await self.loop(time.monotonic_ns())
+        now: int = time.monotonic_ns()
+        scheduled_time: int = now + self.timeout_ns
+
+        self.background_sleep_task = asyncio.create_task(
+            asyncio.sleep(ns_to_seconds(scheduled_time - now))
+        )
+
+        self.background_sleep_task.add_done_callback(
+            lambda coro_object, st=scheduled_time: asyncio.create_task(self.loop(st))
+            # This may happen if the stop method is called before background_sleep_task completes
+            if not coro_object.cancelled()
+            else None
+        )
         return True
 
     """
@@ -70,36 +89,59 @@ class Timer:
       param scheduledTime: the time when the current loop iteration was scheduled.
     """
 
-    async def loop(self, scheduledTime: int) -> None:
-        if self.stopped is True:
+    async def loop(self, scheduled_time: int) -> None:
+        self.background_sleep_task = None
+
+        if self.stopped:
             return
 
-        # Supports both async and sync callbacks
-        if asyncio.iscoroutinefunction(self.callback):
-            await self.callback()
-        else:
-            self.callback()
+        try:
+            result: None | Awaitable[None] = self.callback()
+
+            # Supports both async and sync callbacks
+            if asyncio.iscoroutine(result):
+                await result
+        except Exception as e:
+            if self.err_callback is not None:
+                self.err_callback(e)
+            else:
+                raise e
 
         now: int = time.monotonic_ns()
-        nextScheduledTime: int = (
-            scheduledTime + self.timeout
+        next_scheduled_time: int = (
+            scheduled_time + self.timeout_ns
             if self.schedule_policy == SchedulePolicy.FIXED_SCHEDULE
-            else now + self.timeout
+            else now + self.timeout_ns
         )
-        task: asyncio.Task = asyncio.create_task(
-            asyncio.sleep(ns_to_seconds(nextScheduledTime - now))
+
+        # If the task overruns, schedule next execution based on current time
+        while next_scheduled_time <= now:
+            next_scheduled_time += self.timeout_ns
+
+        self.background_sleep_task = asyncio.create_task(
+            asyncio.sleep(ns_to_seconds(next_scheduled_time - now))
         )
-        task.add_done_callback(
-            lambda coro_object: asyncio.create_task(self.loop(nextScheduledTime))
+
+        self.background_sleep_task.add_done_callback(
+            lambda coro_object, st=next_scheduled_time: asyncio.create_task(
+                self.loop(st)
+            )
+            if not coro_object.cancelled()
+            else None
         )
 
     """
       Stops the timer if it is running.
     """
 
-    async def stop(self) -> bool:
-        if self.stopped:
+    def stop(self) -> bool:
+        if self.stopped or not self.started:
             return False
+
         self.stopped = True
         self.started = False
+
+        if self.background_sleep_task is not None:
+            self.background_sleep_task.cancel()
+
         return True
